@@ -3,10 +3,9 @@ Jason Katz
 ECE-462 Project 2: Othello
 
 File: main.js
-Description: WebGL display functionality and interface logic
+Description: Initialize all javascript components
 */
 
 "use strict";
 
-var gl;
-var canvas;
+Game.init();

@@ -10,3 +10,7 @@ body {
     padding-top: 20px;
     padding-bottom: 20px;
 }
+
+.page__container {
+    text-align: center;
+}

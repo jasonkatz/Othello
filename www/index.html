@@ -1,0 +1,70 @@
+<!--
+Jason Katz
+ECE-462 Project 2: Othello
+
+File: index.html
+Description: Webpage structure and WebGL shaders
+-->
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Othello</title>
+
+        <link rel="stylesheet" href="css/main.css">
+
+        <!-- Bootstrap -->
+        <link rel="stylesheet" href="css/lib/bootstrap.min.css">
+
+        <!-- WebGL library functions -->
+        <script type="text/javascript" src="js/lib/MV.js"></script>
+        <script type="text/javascript" src="js/lib/webgl-utils.js"></script>
+        <script type="text/javascript" src="js/lib/initShaders.js"></script>
+
+        <!-- User code -->
+        <script id="vertex-shader" type="x-shader/x-vertex">
+        </script>
+        <script id="fragment-shader" type="x-shader/x-fragment">
+        </script>
+        <script type="text/javascript" src="js/main.js"></script>
+    </head>
+
+    <body>
+        <div class="container">
+            <nav class="navbar navbar-default">
+                <div class="container-fluid">
+                    <div class="navbar-header">
+                        <span class="navbar-brand">Othello</span>
+                    </div>
+                    <ul class="nav navbar-nav">
+                        <li class="navbar-form">
+                            <button class="btn btn-primary" id="newgame_button">New Game</button>
+                        </li>
+                        <li class="navbar-form">
+                            <button class="btn btn-success" id="save_state_button">Save</button>
+                        </li>
+                        <li class="navbar-form">
+                            <div class="input-group">
+                                <label class="form-control"><input type="file" id="file_picker"></label>
+                                <span class="input-group-btn">
+                                    <button class="btn btn-default" id="load_state_button">Load</button>
+                                </span>
+                            </div>
+                        </li>
+                    </ul>
+                    <ul class="navbar-right nav navbar-nav">
+                        <li>
+                            <p class="navbar-text">by Jason Katz</p>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <canvas id="gl-canvas" width="512" height="512">
+                Oops... your browser doesn't support the HTML5 canvas element
+            </canvas>
+        </div>
+
+        <a id="download-anchor-elem" style="display: none;"></a>
+    </body>
+</html>

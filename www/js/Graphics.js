@@ -11,8 +11,6 @@ Description: WebGL display functionality and interface logic
 var gl;
 var canvas;
 
-var isMoving = false;
-
 var Graphics = {
     init: function () {
         // Initialize WebGL
@@ -42,13 +40,65 @@ var Graphics = {
         Graphics.matrixLocs.projectionMatrixLoc = gl.getUniformLocation( program, 'projection' );
 
         var offset = 4 * Graphics.props.squareSize + 4.5 * Graphics.props.gapSize;
+        Graphics.props.cameraLoc = [ offset, -5, 5 ];
         Graphics.matrices.modelMatrix = mat4();
-        Graphics.matrices.viewMatrix = lookAt( vec3( offset, -5, 5 ), vec3( offset, offset, 0 ), vec3( 0, 1, 1 ) );
+        Graphics.matrices.viewMatrix = lookAt( vec3( Graphics.props.cameraLoc ), vec3( offset, offset, 0 ), vec3( 0, 1, 1 ) );
         Graphics.matrices.projectionMatrix = perspective( 45, 1, 1, 20 );
 
         // Initialize board data
         Graphics.initBoard();
-        Graphics.initPieces();
+
+        // Set up click listener
+        canvas.addEventListener( 'click', function( e ) {
+            var unproject = function( winX, winY, winZ ) {
+                // winZ is either 0 (near plane), 1 (far plane) or somewhere in between.
+                // if it's not given a value we'll produce coords for both.
+                if ( typeof( winZ ) == 'number' ) {
+                    winX = parseFloat( winX );
+                    winY = parseFloat( winY );
+                    winZ = parseFloat( winZ );
+
+                    var inf = [];
+                    var mm = Graphics.matrices.viewMatrix, pm = Graphics.matrices.projectionMatrix;
+                    var viewport = [ 0, 0, canvas.width, canvas.height ];
+
+                    //Calculation for inverting a matrix, compute projection x modelview; then compute the inverse
+                    var m = inverse4( mult( pm, inverse( mm ) ) );
+
+                    // Transformation of normalized coordinates between -1 and 1
+                    inf[0] = ( winX - viewport[0] ) / viewport[2] * 2.0 - 1.0;
+                    inf[1] = ( winY - viewport[1] ) / viewport[3] * 2.0 - 1.0;
+                    inf[2] = 2.0 * winZ - 1.0;
+                    inf[3] = 1.0;
+
+                    //Objects coordinates
+                    var out = vec3();
+                    out = mult( m, inf );
+                    if( out[3] == 0.0 ) {
+                        return null;
+                    }
+
+                    out[3] = 1.0 / out[3];
+                    return [ out[0]*out[3], out[1]*out[3], out[2]*out[3] ];
+                } else {
+                    return [ unproject( winX, winY, 0 ), unproject( winX, winY, 1 ) ];
+                }
+            };
+
+            var x;
+            var y;
+            if (e.pageX || e.pageY) {
+                x = e.pageX;
+                y = e.pageY;
+            } else {
+                x = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+                y = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+            }
+            x -= canvas.offsetLeft;
+            y -= canvas.offsetTop;
+            var v = unproject( x, y );
+            console.log( v );
+        }, false );
 
         Graphics.render();
     }
@@ -76,21 +126,27 @@ var Graphics = {
             }
         }
     }
-    , initPieces: function() {
+    , addPiece: function( x, y, isFlipped ) {
         // Use board coordinates to specify the piece location
-        var piece = function( x, y ) {
-            var piece = Graphics.cylinder();
-            var xOffset = Graphics.props.gapSize + Graphics.props.squareSize / 2 + x * ( Graphics.props.gapSize + Graphics.props.squareSize );
-            var yOffset = Graphics.props.gapSize + Graphics.props.squareSize / 2 + y * ( Graphics.props.gapSize + Graphics.props.squareSize );
-            piece.transform = translate( xOffset, yOffset, 0 );
+        var piece = Graphics.cylinder();
 
-            return piece;
-        };
+        var xOffset = Graphics.props.gapSize + Graphics.props.squareSize / 2 + x * ( Graphics.props.gapSize + Graphics.props.squareSize );
+        var yOffset = Graphics.props.gapSize + Graphics.props.squareSize / 2 + y * ( Graphics.props.gapSize + Graphics.props.squareSize );
 
-        Graphics.pieces.push( piece( 3, 3 ) );
-        Graphics.pieces.push( piece( 3, 4 ) );
-        Graphics.pieces.push( piece( 4, 3 ) );
-        Graphics.pieces.push( piece( 4, 4 ) );
+        piece.transform = mat4();
+        if ( isFlipped ) {
+            piece.transform = mult( rotateY( 180 ), piece.transform );
+        }
+        piece.transform = mult( translate( xOffset, yOffset, Graphics.props.pieceHeight / 2 ), piece.transform );
+        piece.x = x;
+        piece.y = y;
+
+        Graphics.pieces.push( piece );
+    }
+    , flipPiece: function( x, y ) {
+        Graphics.state.isMoving = true;
+        Graphics.state.isMovingUp = true;
+        Graphics.state.movingPieces.push( { x: x, y: y } );
     }
     , quad: function( a, b, c, d, vertices, color ) {
         var indices = [ a, b, c, b, c, d ];
@@ -113,7 +169,7 @@ var Graphics = {
                 var x = Graphics.props.pieceRadius * Math.cos( theta * i );
                 var y = Graphics.props.pieceRadius * Math.sin( theta * i );
 
-                bottomStructure.points.push( [ x, y, 0, 1.0 ] );
+                bottomStructure.points.push( [ x, y, -Graphics.props.pieceHeight / 2, 1.0 ] );
                 bottomStructure.colors.push( Graphics.props.pieceWhite );
             }
 
@@ -127,7 +183,7 @@ var Graphics = {
                 var x = Graphics.props.pieceRadius * Math.cos( theta * i );
                 var y = Graphics.props.pieceRadius * Math.sin( theta * i );
 
-                topStructure.points.push( [ x, y, Graphics.props.pieceHeight, 1.0 ] );
+                topStructure.points.push( [ x, y, Graphics.props.pieceHeight / 2, 1.0 ] );
                 topStructure.colors.push( Graphics.props.pieceBlack );
             }
 
@@ -145,16 +201,16 @@ var Graphics = {
 
                 // Switch colors at the midpoint
                 var bottomVertices = [
+                    vec4( x, y, -Graphics.props.pieceHeight / 2, 1.0 )
+                    , vec4( xOffset, yOffset, -Graphics.props.pieceHeight / 2, 1.0 )
+                    , vec4( x, y, 0.0, 1.0 )
+                    , vec4( xOffset, yOffset, 0.0, 1.0 )
+                ];
+                var topVertices = [
                     vec4( x, y, 0.0, 1.0 )
                     , vec4( xOffset, yOffset, 0.0, 1.0 )
                     , vec4( x, y, Graphics.props.pieceHeight / 2, 1.0 )
                     , vec4( xOffset, yOffset, Graphics.props.pieceHeight / 2, 1.0 )
-                ];
-                var topVertices = [
-                    vec4( x, y, Graphics.props.pieceHeight / 2, 1.0 )
-                    , vec4( xOffset, yOffset, Graphics.props.pieceHeight / 2, 1.0 )
-                    , vec4( x, y, Graphics.props.pieceHeight, 1.0 )
-                    , vec4( xOffset, yOffset, Graphics.props.pieceHeight, 1.0 )
                 ];
                 var bottomQuad = Graphics.quad( 0, 1, 2, 3, bottomVertices, Graphics.props.pieceWhite );
                 var topQuad = Graphics.quad( 0, 1, 2, 3, topVertices, Graphics.props.pieceBlack );
@@ -176,6 +232,7 @@ var Graphics = {
 
         return cylinderStructure;
     }
+    , count: 0
     , render: function() {
         gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
 
@@ -203,6 +260,62 @@ var Graphics = {
             gl.uniformMatrix4fv( Graphics.matrixLocs.modelMatrixLoc, false, flatten( squareModelMatrix ) );
 
             gl.drawArrays( gl.TRIANGLES, 0, square.points.length );
+        }
+
+        // Transform moving pieces
+        if ( Graphics.state.isMoving ) {
+            if ( Graphics.state.isMovingUp && !Graphics.state.isRotating &&
+                Graphics.state.moveZ >= 2 * Graphics.props.pieceRadius ) {
+                Graphics.state.isRotating = true;
+            } else if ( Graphics.state.isMovingUp && Graphics.state.isRotating &&
+                        Graphics.state.moveTheta >= 90 ) {
+                Graphics.state.isMovingUp = false;
+                Graphics.state.isMovingDown = true;
+            } else if ( Graphics.state.isMovingDown && Graphics.state.isRotating &&
+                        Graphics.state.moveTheta >= 180 ) {
+                Graphics.state.isRotating = false;
+            } else if ( Graphics.state.isMovingDown && !Graphics.state.isRotating &&
+                        Graphics.state.moveZ - Graphics.props.vertMoveSpeed <= 0 ) {
+                Graphics.state.isMovingDown = false;
+                Graphics.state.isMoving = false;
+                Graphics.state.movingPieces = [];
+                Graphics.state.moveZ = 0;
+                Graphics.state.moveTheta = 0;
+            }
+
+            var xfm = mat4();
+            var dZ = Graphics.props.vertMoveSpeed;
+            if ( Graphics.state.isMovingUp ) {
+                ++Graphics.count;
+                Graphics.state.moveZ += dZ;
+                xfm = mult( translate( 0, 0, dZ ), xfm );
+            } else if ( Graphics.state.isMovingDown ) {
+                --Graphics.count;
+                Graphics.state.moveZ -= dZ;
+                xfm = mult( translate( 0, 0, -dZ ), xfm );
+            }
+
+            var dTheta = Graphics.props.rotMoveSpeed;
+            if ( Graphics.state.isRotating ) {
+                Graphics.state.moveTheta += dTheta;
+                xfm = mult( rotateY( dTheta ), xfm );
+            }
+
+            for ( var i = 0 ; i < Graphics.state.movingPieces.length ; ++i ) {
+                for ( var j = 0 ; j < Graphics.pieces.length ; ++j ) {
+                    if ( Graphics.pieces[ j ].x == Graphics.state.movingPieces[ i ].x &&
+                         Graphics.pieces[ j ].y == Graphics.state.movingPieces[ i ].y ) {
+                        var piece = Graphics.pieces[ j ];
+                        var xOffset = piece.transform[ 0 ][ 3 ];
+                        var yOffset = piece.transform[ 1 ][ 3 ];
+                        var zOffset = piece.transform[ 2 ][ 3 ];
+
+                        piece.transform = mult( translate( -xOffset, -yOffset, -zOffset ), piece.transform );
+                        piece.transform = mult( xfm, piece.transform );
+                        piece.transform = mult( translate( xOffset, yOffset, zOffset ), piece.transform );
+                    }
+                }
+            }
         }
 
         // Draw pieces
@@ -272,19 +385,30 @@ var Graphics = {
 
         requestAnimFrame( Graphics.render );
     }
-    , glObjs: {}
-    , matrices: {}
-    , matrixLocs: {}
     , props: {
         squareSize: 0.6
         , gapSize: 0.05
+        , cameraLoc: []
         , boardColor: [ 0.259, 0.957, 0.306, 1.0 ]
         , pieceSegments: 32
         , pieceRadius: 0.2
-        , pieceHeight: 0.2
+        , pieceHeight: 0.1
         , pieceWhite: [ 1.0, 1.0, 1.0, 1.0 ]
         , pieceBlack: [ 0.0, 0.0, 0.0, 1.0 ]
+        , vertMoveSpeed: .1
+        , rotMoveSpeed: 10
     }
+    , state: {
+        isMoving: false
+        , isMovingUp: false
+        , isMovingDown: false
+        , movingPieces: []
+        , moveZ: 0
+        , moveTheta: 0
+    }
+    , glObjs: {}
+    , matrices: {}
+    , matrixLocs: {}
     , board: {
         squares: []
     }

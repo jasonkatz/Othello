@@ -41,7 +41,7 @@ var Graphics = {
         Graphics.matrixLocs.viewMatrixLoc = gl.getUniformLocation( program, 'view' );
         Graphics.matrixLocs.projectionMatrixLoc = gl.getUniformLocation( program, 'projection' );
 
-        var offset = .3 * 4 + .35 * 3;
+        var offset = 4 * Graphics.props.squareSize + 4.5 * Graphics.props.gapSize;
         Graphics.matrices.modelMatrix = mat4();
         Graphics.matrices.viewMatrix = lookAt( vec3( offset, -5, 5 ), vec3( offset, offset, 0 ), vec3( 0, 1, 1 ) );
         Graphics.matrices.projectionMatrix = perspective( 45, 1, 1, 20 );
@@ -50,49 +50,39 @@ var Graphics = {
         Graphics.initBoard();
     }
     , initBoard: function() {
-        var board = {
-            points: []
-            , colors: []
-        };
-
         // Use board coordinates to specify which square
         // x is left to right, y is top to bottom
         var boardSquare = function( x, y ) {
-            var points = [], colors = [];
-            var boardColor = [ .259, .957, .306, 1.0 ];
-            var squareSize = 0.3;
-            var gapSize = 0.05;
-            var xOffset = x * ( 2 * squareSize + gapSize );
-            var yOffset = y * ( 2 * squareSize + gapSize );
-            var vertices = [
-                vec4( -squareSize + xOffset, -squareSize + yOffset, 0, 1.0 )
-                , vec4( -squareSize + xOffset, squareSize + yOffset, 0, 1.0 )
-                , vec4( squareSize + xOffset, -squareSize + yOffset, 0, 1.0 )
-                , vec4( squareSize + xOffset, squareSize + yOffset, 0, 1.0 )
-            ];
+            var square = Graphics.quad( 0, 1, 2, 3 );
+            var xOffset = Graphics.props.gapSize + x * ( Graphics.props.gapSize + Graphics.props.squareSize );
+            var yOffset = Graphics.props.gapSize + y * ( Graphics.props.gapSize + Graphics.props.squareSize );
+            square.transform = translate( xOffset, yOffset, 0 );
 
-            return Graphics.quad( 0, 1, 2, 3, vertices, boardColor );
+            return square;
         }
 
         for ( var i = 0 ; i < 8 ; ++i ) {
             for ( var j = 0 ; j < 8 ; ++j ) {
-                var square = boardSquare( i, j );
-                board.points = board.points.concat( square.points );
-                board.colors = board.colors.concat( square.colors );
+                Graphics.board.squares.push( boardSquare( i, j ) );
             }
         }
 
-        Graphics.board = board;
-
         Graphics.render();
     }
-    , quad: function( a, b, c, d, vertices, color ) {
+    , quad: function( a, b, c, d ) {
+        var vertices = [
+            vec4( 0, 0, 0, 1.0 )
+            , vec4( Graphics.props.squareSize, 0, 0, 1.0 )
+            , vec4( 0, Graphics.props.squareSize, 0, 1.0 )
+            , vec4( Graphics.props.squareSize, Graphics.props.squareSize, 0, 1.0 )
+        ];
+
         var indices = [ a, b, c, b, c, d ];
         var quadStructure = { points: [], colors: [] };
 
         for ( var i = 0 ; i < indices.length ; ++i ) {
             quadStructure.points.push( vertices[ indices[ i ] ] );
-            quadStructure.colors.push( color );
+            quadStructure.colors.push( Graphics.props.boardColor );
         }
 
         return quadStructure;
@@ -101,29 +91,43 @@ var Graphics = {
         gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
 
         // Draw board
-        gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.cBuffer );
-        gl.bufferData( gl.ARRAY_BUFFER, flatten( Graphics.board.colors ), gl.STATIC_DRAW );
+        for ( var i = 0 ; i < Graphics.board.squares.length ; ++i ) {
+            var square = Graphics.board.squares[ i ];
 
-        gl.vertexAttribPointer( Graphics.glObjs.vColor, 4, gl.FLOAT, false, 0, 0 );
-        gl.enableVertexAttribArray( Graphics.glObjs.vColor );
+            // Transform the board square according to its transform matrix
+            var squareModelMatrix = mult( Graphics.matrices.modelMatrix, square.transform );
 
-        gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.vBuffer );
-        gl.bufferData( gl.ARRAY_BUFFER, flatten( Graphics.board.points ), gl.STATIC_DRAW );
+            gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.cBuffer );
+            gl.bufferData( gl.ARRAY_BUFFER, flatten( square.colors ), gl.STATIC_DRAW );
 
-        gl.vertexAttribPointer( Graphics.glObjs.vPosition, 4, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray( Graphics.glObjs.vPosition );
+            gl.vertexAttribPointer( Graphics.glObjs.vColor, 4, gl.FLOAT, false, 0, 0 );
+            gl.enableVertexAttribArray( Graphics.glObjs.vColor );
 
-        gl.uniformMatrix4fv( Graphics.matrixLocs.projectionMatrixLoc, false, flatten( Graphics.matrices.projectionMatrix ) );
-        gl.uniformMatrix4fv( Graphics.matrixLocs.viewMatrixLoc, false, flatten( Graphics.matrices.viewMatrix ) );
-        gl.uniformMatrix4fv( Graphics.matrixLocs.modelMatrixLoc, false, flatten( Graphics.matrices.modelMatrix ) );
+            gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.vBuffer );
+            gl.bufferData( gl.ARRAY_BUFFER, flatten( square.points ), gl.STATIC_DRAW );
 
-        gl.drawArrays( gl.TRIANGLES, 0, Graphics.board.points.length );
+            gl.vertexAttribPointer( Graphics.glObjs.vPosition, 4, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray( Graphics.glObjs.vPosition );
+
+            gl.uniformMatrix4fv( Graphics.matrixLocs.projectionMatrixLoc, false, flatten( Graphics.matrices.projectionMatrix ) );
+            gl.uniformMatrix4fv( Graphics.matrixLocs.viewMatrixLoc, false, flatten( Graphics.matrices.viewMatrix ) );
+            gl.uniformMatrix4fv( Graphics.matrixLocs.modelMatrixLoc, false, flatten( squareModelMatrix ) );
+
+            gl.drawArrays( gl.TRIANGLES, 0, square.points.length );
+        }
 
         requestAnimFrame( Graphics.render );
     }
     , glObjs: {}
     , matrices: {}
     , matrixLocs: {}
-    , board: {}
+    , props: {
+        squareSize: .6
+        , gapSize: .05
+        , boardColor: [ .259, .957, .306, 1.0 ]
+    }
+    , board: {
+        squares: []
+    }
     , pieces: {}
 };

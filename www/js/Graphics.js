@@ -41,10 +41,10 @@ var Graphics = {
         Graphics.matrixLocs.viewMatrixLoc = gl.getUniformLocation( program, 'view' );
         Graphics.matrixLocs.projectionMatrixLoc = gl.getUniformLocation( program, 'projection' );
 
-        Graphics.matrices.projectionMatrix = ortho( -.45, 5, -.45, 5, -2, 10); // TODO: Make this a perspective projection
-        Graphics.matrices.projectionMatrix = perspective( 45, 1, 0, 10 );
+        var offset = .3 * 4 + .35 * 3;
         Graphics.matrices.modelMatrix = mat4();
-        Graphics.matrices.viewMatrix = mat4();
+        Graphics.matrices.viewMatrix = lookAt( vec3( offset, -5, 5 ), vec3( offset, offset, 0 ), vec3( 0, 1, 1 ) );
+        Graphics.matrices.projectionMatrix = perspective( 45, 1, 1, 20 );
 
         // Initialize board data
         Graphics.initBoard();

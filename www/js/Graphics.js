@@ -38,22 +38,25 @@ var Graphics = {
         Graphics.glObjs.nBuffer = gl.createBuffer();
         Graphics.glObjs.vNormal = gl.getAttribLocation( program, 'vNormal' );
 
+        Graphics.glObjs.tBuffer = gl.createBuffer();
+        Graphics.glObjs.vTexCoord = gl.getAttribLocation( program, 'vTexCoord' );
+
         Graphics.lighting.ambientProductLoc = gl.getUniformLocation( program, 'ambientProduct' );
         Graphics.lighting.diffuseProductLoc = gl.getUniformLocation( program, 'diffuseProduct' );
         Graphics.lighting.specularProductLoc = gl.getUniformLocation( program, 'specularProduct' );
-        Graphics.lighting.lightPosition1Loc = gl.getUniformLocation( program, 'lightPosition1' );
-        Graphics.lighting.lightPosition2Loc = gl.getUniformLocation( program, 'lightPosition2' );
+        Graphics.lighting.lightPositionLoc = gl.getUniformLocation( program, 'lightPosition' );
         Graphics.lighting.shininessLoc = gl.getUniformLocation( program, 'shininess' );
 
         Graphics.matrixLocs.modelMatrixLoc = gl.getUniformLocation( program, 'model' );
         Graphics.matrixLocs.viewMatrixLoc = gl.getUniformLocation( program, 'view' );
         Graphics.matrixLocs.projectionMatrixLoc = gl.getUniformLocation( program, 'projection' );
 
-        Graphics.lighting.ambientProduct = mult( vec4( .3, .3, .3, 1 ), vec4( 1, 1, 1, 1 ) );
+        Graphics.textures.textureLoc = gl.getUniformLocation( program, 'texture' );
+
+        Graphics.lighting.ambientProduct = mult( vec4( .5, .5, .5, 1 ), vec4( 1, 1, 1, 1 ) );
         Graphics.lighting.diffuseProduct = mult( vec4( 1, 1, 1, 1 ), vec4( 1, .8, 0, 1 ) );
         Graphics.lighting.specularProduct = mult( vec4( 1, 1, 1, 1 ), vec4( 1, .8, 0, 1 ) );
-        Graphics.lighting.lightPosition1 = vec4( -4, 0, 8, 1 );
-        Graphics.lighting.lightPosition2 = vec4( 4, 0, 8, 1 );
+        Graphics.lighting.lightPosition = vec4( 0, 0, 15, 1 );
         Graphics.lighting.shininess = 100;
 
         var offset = 4 * Graphics.props.squareSize + 4.5 * Graphics.props.gapSize;
@@ -61,6 +64,18 @@ var Graphics = {
         Graphics.matrices.modelMatrix = mat4();
         Graphics.matrices.viewMatrix = lookAt( vec3( Graphics.props.cameraLoc ), vec3( offset, offset, 0 ), vec3( 0, 1, 1 ) );
         Graphics.matrices.projectionMatrix = perspective( 45, 1, 1, 20 );
+
+        // Initialize textures
+        var image = document.getElementById( 'wood-tex-image' );
+        image.onload = function() {
+            Graphics.glObjs.texture = gl.createTexture();
+            gl.bindTexture( gl.TEXTURE_2D, Graphics.glObjs.texture );
+            gl.pixelStorei( gl.UNPACK_FLIP_Y_WEBGL, true );
+            gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image );
+            gl.generateMipmap( gl.TEXTURE_2D );
+            gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR );
+            gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
+        };
 
         // Initialize board data
         Graphics.initBoard();
@@ -128,11 +143,19 @@ var Graphics = {
                 , vec4( 0, Graphics.props.squareSize, 0, 1.0 )
                 , vec4( Graphics.props.squareSize, Graphics.props.squareSize, 0, 1.0 )
             ];
+            var texCoords = [
+                vec2( 0, 0 )
+                , vec2( 0, 1 )
+                , vec2( 1, 0 )
+                , vec2( 1, 1 )
+            ];
 
-            var square = Graphics.quad( 0, 1, 2, 3, vertices, Graphics.props.boardColor );
+            var square = Graphics.quad( 0, 1, 2, 3, vertices, Graphics.props.boardColor, texCoords );
             var xOffset = Graphics.props.gapSize + x * ( Graphics.props.gapSize + Graphics.props.squareSize );
             var yOffset = Graphics.props.gapSize + y * ( Graphics.props.gapSize + Graphics.props.squareSize );
             square.transform = translate( xOffset, yOffset, 0 );
+            square.x = x;
+            square.y = y;
 
             return square;
         };
@@ -165,15 +188,21 @@ var Graphics = {
         Graphics.state.isMovingUp = true;
         Graphics.state.movingPieces.push( { x: x, y: y } );
     }
-    , quad: function( a, b, c, d, vertices, color ) {
+    , setLegalMoves: function( moves ) {
+        Graphics.state.legalMoves = moves;
+    }
+    , quad: function( a, b, c, d, vertices, color, texCoords ) {
         var indices = [ a, b, c, b, c, d ];
-        var quadStructure = { points: [], colors: [], normals: [] };
+        var quadStructure = { points: [], colors: [], normals: [], texCoords: [] };
         var normal = vec4( normalize( cross( subtract( vertices[ b ], vertices[ a ] ), subtract( vertices[ c ], vertices[ a ] ) ) ) );
 
         for ( var i = 0 ; i < indices.length ; ++i ) {
             quadStructure.points.push( vertices[ indices[ i ] ] );
             quadStructure.colors.push( color );
             quadStructure.normals.push( normal );
+            if ( texCoords ) {
+                quadStructure.texCoords.push( texCoords[ indices[ i ] ] );
+            }
         }
 
         return quadStructure;
@@ -262,8 +291,19 @@ var Graphics = {
         gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
 
         // Draw board
+        Graphics.lighting.ambientProduct = mult( vec4( .5, .5, .5, 1 ), vec4( 1, 1, 1, 1 ) );
         for ( var i = 0 ; i < Graphics.board.squares.length ; ++i ) {
             var square = Graphics.board.squares[ i ];
+
+            for ( var j = 0 ; j < Graphics.state.legalMoves.length ; ++j ) {
+                if ( square.x == Graphics.state.legalMoves[ j ].x &&
+                     square.y == Graphics.state.legalMoves[ j ].y ) {
+                    Graphics.lighting.lightPosition = vec4( 0, 0, 5, 1 );
+                    break;
+                } else {
+                    Graphics.lighting.lightPosition = vec4( 0, 0, 15, 1 );
+                }
+            }
 
             // Transform the board square according to its transform matrix
             var squareModelMatrix = mult( Graphics.matrices.modelMatrix, square.transform );
@@ -286,18 +326,30 @@ var Graphics = {
             gl.vertexAttribPointer( Graphics.glObjs.vNormal, 4, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray( Graphics.glObjs.vNormal );
 
+            gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.tBuffer );
+            gl.bufferData( gl.ARRAY_BUFFER, flatten( square.texCoords ), gl.STATIC_DRAW );
+
+            gl.vertexAttribPointer( Graphics.glObjs.vTexCoord, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray( Graphics.glObjs.vTexCoord );
+
             gl.uniform4fv( Graphics.lighting.ambientProductLoc, Graphics.lighting.ambientProduct );
             gl.uniform4fv( Graphics.lighting.diffuseProductLoc, Graphics.lighting.diffuseProduct );
             gl.uniform4fv( Graphics.lighting.specularProductLoc, Graphics.lighting.specularProduct );
-            gl.uniform4fv( Graphics.lighting.lightPosition1Loc, Graphics.lighting.lightPosition1 );
-            gl.uniform4fv( Graphics.lighting.lightPosition2Loc, Graphics.lighting.lightPosition2 );
+            gl.uniform4fv( Graphics.lighting.lightPositionLoc, Graphics.lighting.lightPosition );
             gl.uniform1f( Graphics.lighting.shininessLoc, Graphics.lighting.shininess );
+
+            gl.uniform1i( Graphics.textures.textureLoc, 0 );
 
             gl.uniformMatrix4fv( Graphics.matrixLocs.projectionMatrixLoc, false, flatten( Graphics.matrices.projectionMatrix ) );
             gl.uniformMatrix4fv( Graphics.matrixLocs.viewMatrixLoc, false, flatten( Graphics.matrices.viewMatrix ) );
             gl.uniformMatrix4fv( Graphics.matrixLocs.modelMatrixLoc, false, flatten( squareModelMatrix ) );
 
             gl.drawArrays( gl.TRIANGLES, 0, square.points.length );
+
+            gl.disableVertexAttribArray( Graphics.glObjs.vPosition );
+            gl.disableVertexAttribArray( Graphics.glObjs.vColor );
+            gl.disableVertexAttribArray( Graphics.glObjs.vNormal );
+            gl.disableVertexAttribArray( Graphics.glObjs.vTexCoord );
         }
 
         // Transform moving pieces
@@ -357,6 +409,13 @@ var Graphics = {
         }
 
         // Draw pieces
+        Graphics.lighting.ambientProduct = mult( vec4( 3, 3, 3, 1 ), vec4( 1, 1, 1, 1 ) );
+        Graphics.lighting.lightPosition = vec4( 0, 0, 15, 1 );
+        gl.uniform4fv( Graphics.lighting.ambientProductLoc, Graphics.lighting.ambientProduct );
+        gl.uniform4fv( Graphics.lighting.diffuseProductLoc, Graphics.lighting.diffuseProduct );
+        gl.uniform4fv( Graphics.lighting.specularProductLoc, Graphics.lighting.specularProduct );
+        gl.uniform4fv( Graphics.lighting.lightPositionLoc, Graphics.lighting.lightPosition );
+        gl.uniform1f( Graphics.lighting.shininessLoc, Graphics.lighting.shininess );
         for ( var i = 0 ; i < Graphics.pieces.length ; ++i ) {
             var piece = Graphics.pieces[ i ];
 
@@ -388,6 +447,10 @@ var Graphics = {
 
             gl.drawArrays( gl.TRIANGLE_FAN, 0, piece.bottom.points.length );
 
+            gl.disableVertexAttribArray( Graphics.glObjs.vPosition );
+            gl.disableVertexAttribArray( Graphics.glObjs.vColor );
+            gl.disableVertexAttribArray( Graphics.glObjs.vNormal );
+
             // Draw top
             gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.cBuffer );
             gl.bufferData( gl.ARRAY_BUFFER, flatten( piece.top.colors ), gl.STATIC_DRAW );
@@ -413,6 +476,10 @@ var Graphics = {
 
             gl.drawArrays( gl.TRIANGLE_FAN, 0, piece.top.points.length );
 
+            gl.disableVertexAttribArray( Graphics.glObjs.vPosition );
+            gl.disableVertexAttribArray( Graphics.glObjs.vColor );
+            gl.disableVertexAttribArray( Graphics.glObjs.vNormal );
+
             // Draw sides
             gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.cBuffer );
             gl.bufferData( gl.ARRAY_BUFFER, flatten( piece.sides.colors ), gl.STATIC_DRAW );
@@ -437,6 +504,10 @@ var Graphics = {
             gl.uniformMatrix4fv( Graphics.matrixLocs.modelMatrixLoc, false, flatten( pieceModelMatrix ) );
 
             gl.drawArrays( gl.TRIANGLES, 0, piece.sides.points.length );
+
+            gl.disableVertexAttribArray( Graphics.glObjs.vPosition );
+            gl.disableVertexAttribArray( Graphics.glObjs.vColor );
+            gl.disableVertexAttribArray( Graphics.glObjs.vNormal );
         }
 
         requestAnimFrame( Graphics.render );
@@ -461,6 +532,7 @@ var Graphics = {
         , movingPieces: []
         , moveZ: 0
         , moveTheta: 0
+        , legalMoves: [ { x: 1, y: 1 }, { x: 3, y: 5 }, { x: 7, y: 0 } ]
     }
     , glObjs: {}
     , matrices: {}
@@ -470,4 +542,5 @@ var Graphics = {
     }
     , pieces: []
     , lighting: {}
+    , textures: {}
 };

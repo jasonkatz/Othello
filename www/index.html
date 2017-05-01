@@ -26,12 +26,13 @@ Description: Webpage structure and WebGL shaders
             attribute vec4 vPosition;
             attribute vec4 vNormal;
             attribute vec4 vColor;
+            attribute vec2 vTexCoord;
 
             varying vec4 fColor;
+            varying vec2 fTexCoord;
 
             uniform vec4 ambientProduct, diffuseProduct, specularProduct;
-            uniform vec4 lightPosition1;
-            uniform vec4 lightPosition2;
+            uniform vec4 lightPosition;
             uniform float shininess;
 
             uniform mat4 model;
@@ -40,32 +41,31 @@ Description: Webpage structure and WebGL shaders
 
             void main() {
                 vec3 pos = -( view * model * vPosition ).xyz;
-                vec3 light1 = lightPosition1.xyz;
-                vec3 light2 = lightPosition2.xyz;
-                vec3 L1 = normalize( light1 - pos );
-                vec3 L2 = normalize( light2 - pos );
+                vec3 light = lightPosition.xyz;
+                vec3 L = normalize( light - pos );
 
                 vec3 E = normalize( -pos );
-                vec3 H1 = normalize( L1 + E );
-                vec3 H2 = normalize( L2 + E );
+                vec3 H = normalize( L + E );
 
                 // Transform vertex normal into eye coordinates
                 vec3 N = normalize( ( view * model * vNormal ).xyz );
 
                 // Compute the terms of the illumination equation
                 vec4 ambient = ambientProduct;
-                float Kd = max( dot( L1, N ), 0.0 ) + max( dot( L2, N ), 0.0 );
+                float Kd = max( dot( L, N ), 0.0 );
                 vec4 diffuse = Kd * diffuseProduct;
-                float Ks = pow( max( dot( N, H1 ), 0.0 ), shininess ) + pow( max( dot( N, H2 ), 0.0 ), shininess );
+                float Ks = pow( max( dot( N, H ), 0.0 ), shininess );
                 vec4 specular = Ks * specularProduct;
 
-                if ( dot( L1, N ) < 0.0  && dot( L2, N ) < 0.0 ) {
+                if ( dot( L, N ) < 0.0 ) {
                     specular = vec4( 0.0, 0.0, 0.0, 1.0 );
                 }
 
                 fColor = ambient + diffuse + specular;
                 fColor.a = 1.0;
                 fColor = vColor * fColor;
+
+                fTexCoord = vTexCoord;
 
                 gl_Position = projection * view * model * vPosition;
             }
@@ -74,9 +74,12 @@ Description: Webpage structure and WebGL shaders
             precision mediump float;
 
             varying vec4 fColor;
+            varying vec2 fTexCoord;
+
+            uniform sampler2D texture;
 
             void main() {
-                gl_FragColor = fColor;
+                gl_FragColor = fColor * texture2D( texture, fTexCoord );
             }
         </script>
     </head>
@@ -115,6 +118,7 @@ Description: Webpage structure and WebGL shaders
             <canvas id="gl-canvas" width="512" height="512">
                 Oops... your browser doesn't support the HTML5 canvas element
             </canvas>
+            <img id="wood-tex-image" src="img/wood.jpg" hidden>
         </div>
 
         <a id="download-anchor-elem" style="display: none;"></a>

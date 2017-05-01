@@ -29,6 +29,9 @@ var Game = {
         Game.resetBoard();
 
         Game.state.currentPlayer = true;
+        Game.state.lastMoveEmpty = false;
+        Game.state.gameOver = false;
+
         Game.addPiece( 3, 3, true );
         Game.addPiece( 3, 4, false );
         Game.addPiece( 4, 3, false );
@@ -41,6 +44,11 @@ var Game = {
         Graphics.addPiece( x, y, player );
     }
     , waitForMove: function() {
+        if ( Game.state.gameOver ) {
+            Game.printResults();
+            return;
+        }
+
         Game.updateLegalMoves();
         Graphics.setLegalMoves( Game.state.legalMoves );
 
@@ -450,6 +458,7 @@ var Game = {
         Graphics.flipPieces( updatedPieces, Game.waitForMove );
 
         Game.state.currentPlayer = !Game.state.currentPlayer;
+        Game.state.lastMoveEmpty = false;
     }
     , addGhost: function( x, y, player ) {
         if ( !Graphics.state.isMoving ) {
@@ -460,10 +469,29 @@ var Game = {
         Graphics.removeGhost( x, y );
     }
     , emptyTurn: function() {
+        if ( Game.state.lastMoveEmpty ) {
+            Game.state.gameOver = true;
+        }
+
+        Game.state.lastMoveEmpty = true;
         setTimeout( function() {
             Game.state.currentPlayer = !Game.state.currentPlayer;
             Game.waitForMove();
         }, Game.props.emptyTimeout );
+    }
+    , printResults: function() {
+        var p1Count = 0, p2Count = 0;
+        for ( var i = 0 ; i < 8 ; ++i ) {
+            for ( var j = 0 ; j < 8 ; ++j ) {
+                if ( Game.state.board[ i ][ j ] == true ) {
+                    ++p1Count;
+                } else if ( Game.state.board[ i ][ j ] == false ) {
+                    ++p2Count;
+                }
+            }
+        }
+
+        Interface.displayWinner( p1Count, p2Count );
     }
     , props: {
         emptyTimeout: 2000
@@ -472,5 +500,7 @@ var Game = {
         currentPlayer: true
         , board: []
         , legalMoves: []
+        , lastMoveEmpty: false
+        , gameOver: false
     }
 };

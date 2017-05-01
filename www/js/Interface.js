@@ -41,6 +41,7 @@ var Interface = {
             }, false );
             btn.addEventListener( 'click', function( e ) {
                 clickCallback( this.legalMove.x, this.legalMove.y, player );
+                Interface.elements.availableMoves.innerHTML = '';
             }, false );
 
             Interface.elements.availableMoves.appendChild( btn );
@@ -50,6 +51,16 @@ var Interface = {
         for ( var i = 0 ; i < Interface.elements.availableMoves.children.length ; ++i ) {
             Interface.elements.availableMoves.children[ i ].className += ' disabled';
         }
+    }
+    , displayWinner: function( p1Count, p2Count ) {
+        var winText;
+        if ( p1Count == p2Count ) {
+            winText = 'Player 1 ties Player 2!';
+        } else {
+            winText = 'Player ' + ( p1Count > p2Count ? '1 (Black)' : '2 (White)' ) + ' Wins ' + p1Count + ' to ' + p2Count + '!';
+        }
+        Interface.elements.heading.innerHTML = winText;
+        Interface.elements.availableMoves.innerHTML = '';
     }
     , elements: {}
 };

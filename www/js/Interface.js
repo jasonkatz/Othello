@@ -13,7 +13,13 @@ var Interface = {
         Interface.elements.heading = document.getElementById( 'turn-heading' );
         Interface.elements.availableMoves = document.getElementById( 'available-moves' );
     }
-    , newTurn: function( player, legalMoves, clickCallback, mouseOverCallback, mouseOutCallback ) {
+    , newTurn: function( player, legalMoves, clickCallback, mouseOverCallback, mouseOutCallback, emptyCallback ) {
+        if ( legalMoves.length == 0 ) {
+            Interface.elements.heading.innerHTML = 'No Moves for Player ' + ( player ? '1 (Black)' : '2 (White)' );
+            emptyCallback();
+            return;
+        }
+
         Interface.elements.heading.innerHTML = 'Player ' + ( player ? '1 (Black)' : '2 (White)' ) + ' Move';
         Interface.elements.availableMoves.innerHTML = '';
 
@@ -34,6 +40,11 @@ var Interface = {
             }, false );
 
             Interface.elements.availableMoves.appendChild( btn );
+        }
+    }
+    , disableUI: function() {
+        for ( var i = 0 ; i < Interface.elements.availableMoves.children.length ; ++i ) {
+            Interface.elements.availableMoves.children[ i ].className += ' disabled';
         }
     }
     , elements: {}

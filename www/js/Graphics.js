@@ -77,62 +77,16 @@ var Graphics = {
             gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
         };
 
+        Graphics.reset();
+
         // Initialize board data
         Graphics.initBoard();
 
-        // Set up click listener
-        canvas.addEventListener( 'click', function( e ) {
-            var unproject = function( winX, winY, winZ ) {
-                // winZ is either 0 (near plane), 1 (far plane) or somewhere in between.
-                // if it's not given a value we'll produce coords for both.
-                if ( typeof( winZ ) == 'number' ) {
-                    winX = parseFloat( winX );
-                    winY = parseFloat( winY );
-                    winZ = parseFloat( winZ );
-
-                    var inf = [];
-                    var mm = Graphics.matrices.viewMatrix, pm = Graphics.matrices.projectionMatrix;
-                    var viewport = [ 0, 0, canvas.width, canvas.height ];
-
-                    //Calculation for inverting a matrix, compute projection x modelview; then compute the inverse
-                    var m = inverse4( mult( pm, inverse( mm ) ) );
-
-                    // Transformation of normalized coordinates between -1 and 1
-                    inf[0] = ( winX - viewport[0] ) / viewport[2] * 2.0 - 1.0;
-                    inf[1] = ( winY - viewport[1] ) / viewport[3] * 2.0 - 1.0;
-                    inf[2] = 2.0 * winZ - 1.0;
-                    inf[3] = 1.0;
-
-                    //Objects coordinates
-                    var out = vec3();
-                    out = mult( m, inf );
-                    if( out[3] == 0.0 ) {
-                        return null;
-                    }
-
-                    out[3] = 1.0 / out[3];
-                    return [ out[0]*out[3], out[1]*out[3], out[2]*out[3] ];
-                } else {
-                    return [ unproject( winX, winY, 0 ), unproject( winX, winY, 1 ) ];
-                }
-            };
-
-            var x;
-            var y;
-            if (e.pageX || e.pageY) {
-                x = e.pageX;
-                y = e.pageY;
-            } else {
-                x = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
-                y = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
-            }
-            x -= canvas.offsetLeft;
-            y -= canvas.offsetTop;
-            var v = unproject( x, y );
-            console.log( v );
-        }, false );
-
-        Graphics.render();
+        if ( Graphics.state.animFrameId ) {
+            cancelAnimationFrame( Graphics.state.animFrameId );
+            Graphics.state.animFrameId = undefined;
+        }
+        Graphics.state.animFrameId = requestAnimationFrame( Graphics.render );
     }
     , initBoard: function() {
         // Use board coordinates to specify which square
@@ -183,10 +137,11 @@ var Graphics = {
 
         Graphics.pieces.push( piece );
     }
-    , flipPiece: function( x, y ) {
+    , flipPieces: function( pieces, doneMovingCallback ) {
         Graphics.state.isMoving = true;
         Graphics.state.isMovingUp = true;
-        Graphics.state.movingPieces.push( { x: x, y: y } );
+        Graphics.state.movingPieces = Graphics.state.movingPieces.concat( pieces );
+        Graphics.state.doneMovingCallback = doneMovingCallback;
     }
     , setLegalMoves: function( moves ) {
         Graphics.state.legalMoves = moves;
@@ -196,6 +151,10 @@ var Graphics = {
         Graphics.addPiece( x, y, player, true );
     }
     , removeGhost: function() {
+        if ( Graphics.state.ghostCoords == undefined ) {
+            return;
+        }
+
         for ( var i = 0 ; i < Graphics.pieces.length ; ++i ) {
             if ( Graphics.pieces[ i ].x == Graphics.state.ghostCoords.x && Graphics.pieces[ i ].y == Graphics.state.ghostCoords.y ) {
                 Graphics.pieces.splice( i, 1 );
@@ -383,6 +342,8 @@ var Graphics = {
                 Graphics.state.movingPieces = [];
                 Graphics.state.moveZ = 0;
                 Graphics.state.moveTheta = 0;
+                Graphics.state.doneMovingCallback();
+                Graphics.state.doneMovingCallback = undefined;
             }
 
             var xfm = mat4();
@@ -522,7 +483,29 @@ var Graphics = {
             gl.disableVertexAttribArray( Graphics.glObjs.vNormal );
         }
 
-        requestAnimFrame( Graphics.render );
+        Graphics.state.animFrameId = requestAnimationFrame( Graphics.render );
+    }
+    , reset: function() {
+        var animFrameId = undefined;
+        if ( Graphics.state && Graphics.state.animFrameId ) {
+            animFrameId = Graphics.state.animFrameId;
+        }
+        Graphics.state = {
+            isMoving: false
+            , isMovingUp: false
+            , isMovingDown: false
+            , movingPieces: []
+            , moveZ: 0
+            , moveTheta: 0
+            , doneMovingCallback: undefined
+            , legalMoves: [ { x: 1, y: 1 }, { x: 3, y: 5 }, { x: 7, y: 0 } ]
+            , ghostCoords: undefined
+            , animFrameId: animFrameId
+        };
+        Graphics.board = {
+            squares: []
+        };
+        Graphics.pieces = [];
     }
     , props: {
         squareSize: 0.6
@@ -539,23 +522,10 @@ var Graphics = {
         , vertMoveSpeed: .1
         , rotMoveSpeed: 10
     }
-    , state: {
-        isMoving: false
-        , isMovingUp: false
-        , isMovingDown: false
-        , movingPieces: []
-        , moveZ: 0
-        , moveTheta: 0
-        , legalMoves: [ { x: 1, y: 1 }, { x: 3, y: 5 }, { x: 7, y: 0 } ]
-        , ghostCoords: undefined
-    }
+    , state: {}
     , glObjs: {}
     , matrices: {}
     , matrixLocs: {}
-    , board: {
-        squares: []
-    }
-    , pieces: []
     , lighting: {}
     , textures: {}
 };

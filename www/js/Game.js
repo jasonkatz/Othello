@@ -20,6 +20,7 @@ var Game = {
         Graphics.init();
         Interface.init();
 
+        Game.state.currentPlayer = true;
         Game.addPiece( 3, 3, true );
         Game.addPiece( 3, 4, false );
         Game.addPiece( 4, 3, false );
@@ -34,7 +35,8 @@ var Game = {
     , waitForMove: function() {
         Game.updateLegalMoves();
         Graphics.setLegalMoves( Game.state.legalMoves );
-        Interface.newTurn( Game.state.currentPlayer, Game.state.legalMoves, Game.move, Game.addGhost, Game.removeGhost );
+
+        Interface.newTurn( Game.state.currentPlayer, Game.state.legalMoves, Game.move, Game.addGhost, Game.removeGhost, Game.emptyTurn );
     }
     , updateLegalMoves: function() {
         var legalMoves = [];
@@ -414,23 +416,34 @@ var Game = {
         return adj;
     }
     , move: function( x, y, player ) {
+        Interface.disableUI();
         Graphics.removeGhost( x, y );
         Game.addPiece( x, y, player );
         var updatedPieces = Game.getUpdatedPieces( x, y );
         for ( var i = 0 ; i < updatedPieces.length ; ++i ) {
             var piece = updatedPieces[ i ];
             Game.state.board[ piece.x ][ piece.y ] = Game.state.currentPlayer;
-            Graphics.flipPiece( piece.x, piece.y );
         }
+        Graphics.flipPieces( updatedPieces, Game.waitForMove );
 
         Game.state.currentPlayer = !Game.state.currentPlayer;
-        Game.waitForMove();
     }
     , addGhost: function( x, y, player ) {
-        Graphics.addGhost( x, y, player );
+        if ( !Graphics.state.isMoving ) {
+            Graphics.addGhost( x, y, player );
+        }
     }
     , removeGhost: function( x, y ) {
         Graphics.removeGhost( x, y );
+    }
+    , emptyTurn: function() {
+        setTimeout( function() {
+            Game.state.currentPlayer = !Game.state.currentPlayer;
+            Game.waitForMove();
+        }, Game.props.emptyTimeout );
+    }
+    , props: {
+        emptyTimeout: 2000
     }
     , state: {
         currentPlayer: true

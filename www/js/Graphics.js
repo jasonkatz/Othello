@@ -260,6 +260,7 @@ var Graphics = {
     , count: 0
     , render: function() {
         gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
+        gl.clearColor( 0, 0, 0, 0.1 );
 
         // Draw board
         Graphics.lighting.ambientProduct = mult( vec4( .5, .5, .5, 1 ), vec4( 1, 1, 1, 1 ) );

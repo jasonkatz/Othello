@@ -10,15 +10,23 @@ Description: Othello game logic
 
 var Game = {
     init: function() {
+        Graphics.init();
+        Interface.init();
+        Game.resetBoard();
+        Interface.listenNewGame( Game.start );
+    }
+    , resetBoard: function() {
         for ( var i = 0 ; i < 8 ; ++i ) {
             Game.state.board[ i ] = [];
             for ( var j = 0 ; j < 8 ; ++j ) {
                 Game.state.board[ i ][ j ] = undefined;
             }
         }
-
+    }
+    , start: function() {
         Graphics.init();
         Interface.init();
+        Game.resetBoard();
 
         Game.state.currentPlayer = true;
         Game.addPiece( 3, 3, true );
@@ -180,6 +188,21 @@ var Game = {
                 }
             }
         }
+
+        legalMoves.sort( function( a, b ) {
+            if ( a.x < b.x ) {
+                return -1;
+            } else if ( a.x > b.x ) {
+                return 1;
+            } else {
+                if ( a.y < b.y ) {
+                    return -1;
+                } else if ( a.y > b.y ) {
+                    return 1;
+                }
+            }
+            return 0;
+        } );
 
         Game.state.legalMoves = legalMoves;
     }

@@ -12,6 +12,10 @@ var Interface = {
     init: function() {
         Interface.elements.heading = document.getElementById( 'turn-heading' );
         Interface.elements.availableMoves = document.getElementById( 'available-moves' );
+        Interface.elements.newGame = document.getElementById( 'newgame_button' );
+    }
+    , listenNewGame: function( callback ) {
+        Interface.elements.newGame.addEventListener( 'click', callback, false );
     }
     , newTurn: function( player, legalMoves, clickCallback, mouseOverCallback, mouseOutCallback, emptyCallback ) {
         if ( legalMoves.length == 0 ) {

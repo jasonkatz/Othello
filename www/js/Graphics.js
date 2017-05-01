@@ -498,7 +498,7 @@ var Graphics = {
             , moveZ: 0
             , moveTheta: 0
             , doneMovingCallback: undefined
-            , legalMoves: [ { x: 1, y: 1 }, { x: 3, y: 5 }, { x: 7, y: 0 } ]
+            , legalMoves: []
             , ghostCoords: undefined
             , animFrameId: animFrameId
         };

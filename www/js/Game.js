@@ -59,7 +59,7 @@ var Game = {
             var emptyAdj = Game.getAdjacentLocations( enemyLocs[ i ], undefined );
 
             for ( var j = 0 ; j < emptyAdj.length ; ++j ) {
-                // Don't check location is previously verified legal
+                // Don't check location if previously verified legal
                 if ( legalMoves.find( function( obj ) {
                     return emptyAdj[ j ].x == obj.x && emptyAdj[ j ].y == obj.y;
                 } ) ) {
@@ -152,10 +152,10 @@ var Game = {
                     // Empty on up, check squares to the down
                     var tmp = enemyLocs[ i ].y - 1;
                     while ( tmp >= 0 ) {
-                        if ( b[ emptyAdj[ j ].y ][ tmp ] == undefined ) {
+                        if ( b[ emptyAdj[ j ].x ][ tmp ] == undefined ) {
                             break;
                         }
-                        if ( b[ emptyAdj[ j ].y ][ tmp ] == Game.state.currentPlayer ) {
+                        if ( b[ emptyAdj[ j ].x ][ tmp ] == Game.state.currentPlayer ) {
                             legalMoves.push( emptyAdj[ j ] );
                             break;
                         }
@@ -378,7 +378,7 @@ var Game = {
             }
             if ( l.x < 7 ) {
                 if ( b[ l.x + 1 ][ l.y - 1 ] == val ) {
-                    adj.push( { x: l.x + 1, y: l.y + 1, dir: 'DOWNRIGHT' } );
+                    adj.push( { x: l.x + 1, y: l.y - 1, dir: 'DOWNRIGHT' } );
                 }
             }
         }
@@ -402,7 +402,7 @@ var Game = {
 
         if ( l.x > 0 ) {
             if ( b[ l.x - 1 ][ l.y ] == val ) {
-                adj.push( { x: l.x - 1, Y: l.y, dir: 'LEFT' } );
+                adj.push( { x: l.x - 1, y: l.y, dir: 'LEFT' } );
             }
         }
         if ( l.x < 7 ) {

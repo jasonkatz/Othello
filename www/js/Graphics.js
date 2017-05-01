@@ -35,9 +35,26 @@ var Graphics = {
         Graphics.glObjs.vBuffer = gl.createBuffer();
         Graphics.glObjs.vPosition = gl.getAttribLocation( program, 'vPosition' );
 
+        Graphics.glObjs.nBuffer = gl.createBuffer();
+        Graphics.glObjs.vNormal = gl.getAttribLocation( program, 'vNormal' );
+
+        Graphics.lighting.ambientProductLoc = gl.getUniformLocation( program, 'ambientProduct' );
+        Graphics.lighting.diffuseProductLoc = gl.getUniformLocation( program, 'diffuseProduct' );
+        Graphics.lighting.specularProductLoc = gl.getUniformLocation( program, 'specularProduct' );
+        Graphics.lighting.lightPosition1Loc = gl.getUniformLocation( program, 'lightPosition1' );
+        Graphics.lighting.lightPosition2Loc = gl.getUniformLocation( program, 'lightPosition2' );
+        Graphics.lighting.shininessLoc = gl.getUniformLocation( program, 'shininess' );
+
         Graphics.matrixLocs.modelMatrixLoc = gl.getUniformLocation( program, 'model' );
         Graphics.matrixLocs.viewMatrixLoc = gl.getUniformLocation( program, 'view' );
         Graphics.matrixLocs.projectionMatrixLoc = gl.getUniformLocation( program, 'projection' );
+
+        Graphics.lighting.ambientProduct = mult( vec4( .3, .3, .3, 1 ), vec4( 1, 1, 1, 1 ) );
+        Graphics.lighting.diffuseProduct = mult( vec4( 1, 1, 1, 1 ), vec4( 1, .8, 0, 1 ) );
+        Graphics.lighting.specularProduct = mult( vec4( 1, 1, 1, 1 ), vec4( 1, .8, 0, 1 ) );
+        Graphics.lighting.lightPosition1 = vec4( -4, 0, 8, 1 );
+        Graphics.lighting.lightPosition2 = vec4( 4, 0, 8, 1 );
+        Graphics.lighting.shininess = 100;
 
         var offset = 4 * Graphics.props.squareSize + 4.5 * Graphics.props.gapSize;
         Graphics.props.cameraLoc = [ offset, -5, 5 ];
@@ -150,11 +167,13 @@ var Graphics = {
     }
     , quad: function( a, b, c, d, vertices, color ) {
         var indices = [ a, b, c, b, c, d ];
-        var quadStructure = { points: [], colors: [] };
+        var quadStructure = { points: [], colors: [], normals: [] };
+        var normal = vec4( normalize( cross( subtract( vertices[ b ], vertices[ a ] ), subtract( vertices[ c ], vertices[ a ] ) ) ) );
 
         for ( var i = 0 ; i < indices.length ; ++i ) {
             quadStructure.points.push( vertices[ indices[ i ] ] );
             quadStructure.colors.push( color );
+            quadStructure.normals.push( normal );
         }
 
         return quadStructure;
@@ -163,7 +182,8 @@ var Graphics = {
         var theta = ( Math.PI / 180 ) * ( 360 / Graphics.props.pieceSegments );
 
         var cylinderBottom = function() {
-            var bottomStructure = { points: [], colors: [] };
+            var bottomStructure = { points: [], colors: [], normals: [] };
+            var normal = vec4( 0, 0, -1 );
 
             for ( var i = 0 ; i < Graphics.props.pieceSegments ; ++i ) {
                 var x = Graphics.props.pieceRadius * Math.cos( theta * i );
@@ -171,13 +191,15 @@ var Graphics = {
 
                 bottomStructure.points.push( [ x, y, -Graphics.props.pieceHeight / 2, 1.0 ] );
                 bottomStructure.colors.push( Graphics.props.pieceWhite );
+                bottomStructure.normals.push( normal );
             }
 
             return bottomStructure;
         };
 
         var cylinderTop = function() {
-            var topStructure = { points: [], colors: [] };
+            var topStructure = { points: [], colors: [], normals: [] };
+            var normal = vec4( 0, 0, 1 );
 
             for ( var i = 0 ; i < Graphics.props.pieceSegments ; ++i ) {
                 var x = Graphics.props.pieceRadius * Math.cos( theta * i );
@@ -185,13 +207,14 @@ var Graphics = {
 
                 topStructure.points.push( [ x, y, Graphics.props.pieceHeight / 2, 1.0 ] );
                 topStructure.colors.push( Graphics.props.pieceBlack );
+                topStructure.normals.push( normal );
             }
 
             return topStructure;
         };
 
         var cylinderSides = function() {
-            var sideStructure = { points: [], colors: [] };
+            var sideStructure = { points: [], colors: [], normals: [] };
 
             for ( var i = 0 ; i < Graphics.props.pieceSegments ; ++i ) {
                 var x = Graphics.props.pieceRadius * Math.cos( theta * i );
@@ -217,8 +240,10 @@ var Graphics = {
 
                 sideStructure.points = sideStructure.points.concat( bottomQuad.points );
                 sideStructure.colors = sideStructure.colors.concat( bottomQuad.colors );
+                sideStructure.normals = sideStructure.colors.concat( bottomQuad.normals );
                 sideStructure.points = sideStructure.points.concat( topQuad.points );
                 sideStructure.colors = sideStructure.colors.concat( topQuad.colors );
+                sideStructure.normals = sideStructure.colors.concat( topQuad.normals );
             }
 
             return sideStructure;
@@ -254,6 +279,19 @@ var Graphics = {
 
             gl.vertexAttribPointer( Graphics.glObjs.vPosition, 4, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray( Graphics.glObjs.vPosition );
+
+            gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.nBuffer );
+            gl.bufferData( gl.ARRAY_BUFFER, flatten( square.normals ), gl.STATIC_DRAW );
+
+            gl.vertexAttribPointer( Graphics.glObjs.vNormal, 4, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray( Graphics.glObjs.vNormal );
+
+            gl.uniform4fv( Graphics.lighting.ambientProductLoc, Graphics.lighting.ambientProduct );
+            gl.uniform4fv( Graphics.lighting.diffuseProductLoc, Graphics.lighting.diffuseProduct );
+            gl.uniform4fv( Graphics.lighting.specularProductLoc, Graphics.lighting.specularProduct );
+            gl.uniform4fv( Graphics.lighting.lightPosition1Loc, Graphics.lighting.lightPosition1 );
+            gl.uniform4fv( Graphics.lighting.lightPosition2Loc, Graphics.lighting.lightPosition2 );
+            gl.uniform1f( Graphics.lighting.shininessLoc, Graphics.lighting.shininess );
 
             gl.uniformMatrix4fv( Graphics.matrixLocs.projectionMatrixLoc, false, flatten( Graphics.matrices.projectionMatrix ) );
             gl.uniformMatrix4fv( Graphics.matrixLocs.viewMatrixLoc, false, flatten( Graphics.matrices.viewMatrix ) );
@@ -338,6 +376,12 @@ var Graphics = {
             gl.vertexAttribPointer( Graphics.glObjs.vPosition, 4, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray( Graphics.glObjs.vPosition );
 
+            gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.nBuffer );
+            gl.bufferData( gl.ARRAY_BUFFER, flatten( piece.bottom.normals ), gl.STATIC_DRAW );
+
+            gl.vertexAttribPointer( Graphics.glObjs.vNormal, 4, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray( Graphics.glObjs.vNormal );
+
             gl.uniformMatrix4fv( Graphics.matrixLocs.projectionMatrixLoc, false, flatten( Graphics.matrices.projectionMatrix ) );
             gl.uniformMatrix4fv( Graphics.matrixLocs.viewMatrixLoc, false, flatten( Graphics.matrices.viewMatrix ) );
             gl.uniformMatrix4fv( Graphics.matrixLocs.modelMatrixLoc, false, flatten( pieceModelMatrix ) );
@@ -357,6 +401,12 @@ var Graphics = {
             gl.vertexAttribPointer( Graphics.glObjs.vPosition, 4, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray( Graphics.glObjs.vPosition );
 
+            gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.nBuffer );
+            gl.bufferData( gl.ARRAY_BUFFER, flatten( piece.top.normals ), gl.STATIC_DRAW );
+
+            gl.vertexAttribPointer( Graphics.glObjs.vNormal, 4, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray( Graphics.glObjs.vNormal );
+
             gl.uniformMatrix4fv( Graphics.matrixLocs.projectionMatrixLoc, false, flatten( Graphics.matrices.projectionMatrix ) );
             gl.uniformMatrix4fv( Graphics.matrixLocs.viewMatrixLoc, false, flatten( Graphics.matrices.viewMatrix ) );
             gl.uniformMatrix4fv( Graphics.matrixLocs.modelMatrixLoc, false, flatten( pieceModelMatrix ) );
@@ -375,6 +425,12 @@ var Graphics = {
 
             gl.vertexAttribPointer( Graphics.glObjs.vPosition, 4, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray( Graphics.glObjs.vPosition );
+
+            gl.bindBuffer( gl.ARRAY_BUFFER, Graphics.glObjs.nBuffer );
+            gl.bufferData( gl.ARRAY_BUFFER, flatten( piece.sides.normals ), gl.STATIC_DRAW );
+
+            gl.vertexAttribPointer( Graphics.glObjs.vNormal, 4, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray( Graphics.glObjs.vNormal );
 
             gl.uniformMatrix4fv( Graphics.matrixLocs.projectionMatrixLoc, false, flatten( Graphics.matrices.projectionMatrix ) );
             gl.uniformMatrix4fv( Graphics.matrixLocs.viewMatrixLoc, false, flatten( Graphics.matrices.viewMatrix ) );
@@ -413,4 +469,5 @@ var Graphics = {
         squares: []
     }
     , pieces: []
+    , lighting: {}
 };

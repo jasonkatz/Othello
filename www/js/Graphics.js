@@ -166,15 +166,15 @@ var Graphics = {
             }
         }
     }
-    , addPiece: function( x, y, isFlipped ) {
+    , addPiece: function( x, y, player, isGhost ) {
         // Use board coordinates to specify the piece location
-        var piece = Graphics.cylinder();
+        var piece = Graphics.cylinder( isGhost ? Graphics.props.ghostAlpha : 1.0 );
 
         var xOffset = Graphics.props.gapSize + Graphics.props.squareSize / 2 + x * ( Graphics.props.gapSize + Graphics.props.squareSize );
         var yOffset = Graphics.props.gapSize + Graphics.props.squareSize / 2 + y * ( Graphics.props.gapSize + Graphics.props.squareSize );
 
         piece.transform = mat4();
-        if ( isFlipped ) {
+        if ( !player ) {
             piece.transform = mult( rotateY( 180 ), piece.transform );
         }
         piece.transform = mult( translate( xOffset, yOffset, Graphics.props.pieceHeight / 2 ), piece.transform );
@@ -190,6 +190,18 @@ var Graphics = {
     }
     , setLegalMoves: function( moves ) {
         Graphics.state.legalMoves = moves;
+    }
+    , addGhost: function( x, y, player ) {
+        Graphics.state.ghostCoords = { x: x, y: y };
+        Graphics.addPiece( x, y, player, true );
+    }
+    , removeGhost: function() {
+        for ( var i = 0 ; i < Graphics.pieces.length ; ++i ) {
+            if ( Graphics.pieces[ i ].x == Graphics.state.ghostCoords.x && Graphics.pieces[ i ].y == Graphics.state.ghostCoords.y ) {
+                Graphics.pieces.splice( i, 1 );
+            }
+        }
+        Graphics.state.ghostCoords = undefined;
     }
     , quad: function( a, b, c, d, vertices, color, texCoords ) {
         var indices = [ a, b, c, b, c, d ];
@@ -207,10 +219,10 @@ var Graphics = {
 
         return quadStructure;
     }
-    , cylinder: function() {
+    , cylinder: function( alpha ) {
         var theta = ( Math.PI / 180 ) * ( 360 / Graphics.props.pieceSegments );
 
-        var cylinderBottom = function() {
+        var cylinderBottom = function( alpha ) {
             var bottomStructure = { points: [], colors: [], normals: [] };
             var normal = vec4( 0, 0, -1 );
 
@@ -218,7 +230,7 @@ var Graphics = {
                 var x = Graphics.props.pieceRadius * Math.cos( theta * i );
                 var y = Graphics.props.pieceRadius * Math.sin( theta * i );
 
-                bottomStructure.points.push( [ x, y, -Graphics.props.pieceHeight / 2, 1.0 ] );
+                bottomStructure.points.push( [ x, y, -Graphics.props.pieceHeight / 2, alpha ] );
                 bottomStructure.colors.push( Graphics.props.pieceWhite );
                 bottomStructure.normals.push( normal );
             }
@@ -226,7 +238,7 @@ var Graphics = {
             return bottomStructure;
         };
 
-        var cylinderTop = function() {
+        var cylinderTop = function( alpha ) {
             var topStructure = { points: [], colors: [], normals: [] };
             var normal = vec4( 0, 0, 1 );
 
@@ -234,7 +246,7 @@ var Graphics = {
                 var x = Graphics.props.pieceRadius * Math.cos( theta * i );
                 var y = Graphics.props.pieceRadius * Math.sin( theta * i );
 
-                topStructure.points.push( [ x, y, Graphics.props.pieceHeight / 2, 1.0 ] );
+                topStructure.points.push( [ x, y, Graphics.props.pieceHeight / 2, alpha ] );
                 topStructure.colors.push( Graphics.props.pieceBlack );
                 topStructure.normals.push( normal );
             }
@@ -242,7 +254,7 @@ var Graphics = {
             return topStructure;
         };
 
-        var cylinderSides = function() {
+        var cylinderSides = function( alpha ) {
             var sideStructure = { points: [], colors: [], normals: [] };
 
             for ( var i = 0 ; i < Graphics.props.pieceSegments ; ++i ) {
@@ -253,16 +265,16 @@ var Graphics = {
 
                 // Switch colors at the midpoint
                 var bottomVertices = [
-                    vec4( x, y, -Graphics.props.pieceHeight / 2, 1.0 )
-                    , vec4( xOffset, yOffset, -Graphics.props.pieceHeight / 2, 1.0 )
-                    , vec4( x, y, 0.0, 1.0 )
-                    , vec4( xOffset, yOffset, 0.0, 1.0 )
+                    vec4( x, y, -Graphics.props.pieceHeight / 2, alpha )
+                    , vec4( xOffset, yOffset, -Graphics.props.pieceHeight / 2, alpha )
+                    , vec4( x, y, 0.0, alpha )
+                    , vec4( xOffset, yOffset, 0.0, alpha )
                 ];
                 var topVertices = [
-                    vec4( x, y, 0.0, 1.0 )
-                    , vec4( xOffset, yOffset, 0.0, 1.0 )
-                    , vec4( x, y, Graphics.props.pieceHeight / 2, 1.0 )
-                    , vec4( xOffset, yOffset, Graphics.props.pieceHeight / 2, 1.0 )
+                    vec4( x, y, 0.0, alpha )
+                    , vec4( xOffset, yOffset, 0.0, alpha )
+                    , vec4( x, y, Graphics.props.pieceHeight / 2, alpha )
+                    , vec4( xOffset, yOffset, Graphics.props.pieceHeight / 2, alpha )
                 ];
                 var bottomQuad = Graphics.quad( 0, 1, 2, 3, bottomVertices, Graphics.props.pieceWhite );
                 var topQuad = Graphics.quad( 0, 1, 2, 3, topVertices, Graphics.props.pieceBlack );
@@ -279,9 +291,9 @@ var Graphics = {
         };
 
         var cylinderStructure = {
-            bottom: cylinderBottom()
-            , top: cylinderTop()
-            , sides: cylinderSides()
+            bottom: cylinderBottom( alpha )
+            , top: cylinderTop( alpha )
+            , sides: cylinderSides( alpha )
         };
 
         return cylinderStructure;
@@ -409,7 +421,7 @@ var Graphics = {
         }
 
         // Draw pieces
-        Graphics.lighting.ambientProduct = mult( vec4( 3, 3, 3, 1 ), vec4( 1, 1, 1, 1 ) );
+        Graphics.lighting.ambientProduct = mult( vec4( 5, 5, 5, 1 ), vec4( 1, 1, 1, 1 ) );
         Graphics.lighting.lightPosition = vec4( 0, 0, 15, 1 );
         gl.uniform4fv( Graphics.lighting.ambientProductLoc, Graphics.lighting.ambientProduct );
         gl.uniform4fv( Graphics.lighting.diffuseProductLoc, Graphics.lighting.diffuseProduct );
@@ -524,6 +536,7 @@ var Graphics = {
         , pieceBlack: [ 0.0, 0.0, 0.0, 1.0 ]
         , vertMoveSpeed: .1
         , rotMoveSpeed: 10
+        , ghostAlpha: .6
     }
     , state: {
         isMoving: false
@@ -533,6 +546,7 @@ var Graphics = {
         , moveZ: 0
         , moveTheta: 0
         , legalMoves: [ { x: 1, y: 1 }, { x: 3, y: 5 }, { x: 7, y: 0 } ]
+        , ghostCoords: undefined
     }
     , glObjs: {}
     , matrices: {}

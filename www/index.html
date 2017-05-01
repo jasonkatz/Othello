@@ -118,13 +118,18 @@ Description: Webpage structure and WebGL shaders
             <canvas id="gl-canvas" width="512" height="512">
                 Oops... your browser doesn't support the HTML5 canvas element
             </canvas>
-            <img id="wood-tex-image" src="img/wood.jpg" hidden>
+
+            <div id="ui-container">
+                <h1 id="turn-heading"></h1>
+                <div id="available-moves" class="btn-group-vertical btn-group-lg"></div>
+            </div>
         </div>
 
-        <a id="download-anchor-elem" style="display: none;"></a>
+        <img id="wood-tex-image" src="img/wood.jpg" hidden>
 
         <script type="text/javascript" src="js/Game.js"></script>
         <script type="text/javascript" src="js/Graphics.js"></script>
+        <script type="text/javascript" src="js/Interface.js"></script>
         <script type="text/javascript" src="js/main.js"></script>
     </body>
 </html>

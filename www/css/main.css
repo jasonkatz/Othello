@@ -11,6 +11,15 @@ body {
     padding-bottom: 20px;
 }
 
-.page__container {
+canvas {
+    float: left;
+}
+
+#ui-container {
+    float: right;
     text-align: center;
+}
+
+#available-moves {
+    padding: 20px;
 }

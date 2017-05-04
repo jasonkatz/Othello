@@ -66,7 +66,7 @@ var Graphics = {
         Graphics.matrices.projectionMatrix = perspective( 45, 1, 1, 20 );
 
         // Initialize textures
-        var image = document.getElementById( 'wood-tex-image' );
+        var image = document.getElementById( Graphics.props.textureId );
         image.onload = function() {
             Graphics.glObjs.texture = gl.createTexture();
             gl.bindTexture( gl.TEXTURE_2D, Graphics.glObjs.texture );
@@ -522,6 +522,7 @@ var Graphics = {
         , ghostBlack: [ 0.0, 0.0, 0.0, 0.5 ]
         , vertMoveSpeed: .1
         , rotMoveSpeed: 10
+        , textureId: 'wood-tex-image'
     }
     , state: {}
     , glObjs: {}

@@ -203,9 +203,9 @@ var Game = {
             } else if ( a.x > b.x ) {
                 return 1;
             } else {
-                if ( a.y < b.y ) {
+                if ( a.y > b.y ) {
                     return -1;
-                } else if ( a.y > b.y ) {
+                } else if ( a.y < b.y ) {
                     return 1;
                 }
             }
@@ -219,12 +219,12 @@ var Game = {
         var b = Game.state.board;
         var currentId = Game.state.currentPlayer;
         var enemyId = !Game.state.currentPlayer;
-        
+
         // Check each direction for flanked enemies and add each one to changedPieces
         var adjEnemies = Game.getAdjacentLocations( { x: x, y: y }, enemyId );
         for ( var i = 0 ; i < adjEnemies.length ; ++i ) {
             // We can include duplicates here since checking for them is simply less efficient than process them twice (without repercussions)
-            
+
             // Check direction of adjacent square
             if ( adjEnemies[ i ].dir == 'RIGHT' ) {
                 // Create temporary array to keep track of valid pieces
@@ -477,7 +477,7 @@ var Game = {
         setTimeout( function() {
             Game.state.currentPlayer = !Game.state.currentPlayer;
             Game.waitForMove();
-        }, Game.props.emptyTimeout );
+        }, Game.props.emptyTurnTimeout );
     }
     , printResults: function() {
         var p1Count = 0, p2Count = 0;
@@ -494,7 +494,7 @@ var Game = {
         Interface.displayWinner( p1Count, p2Count );
     }
     , props: {
-        emptyTimeout: 2000
+        emptyTurnTimeout: 1000
     }
     , state: {
         currentPlayer: true
